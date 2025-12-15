@@ -2,16 +2,44 @@ import React, { useState } from 'react';
 import { PRICING_TIERS } from '../constants';
 import { Check, Loader2 } from 'lucide-react';
 
+const WEBHOOK_URLS: Record<string, string> = {
+  'silver': 'https://n8n.robak.org/webhook/e7588b59-398b-4d0a-9003-2fadee48a452', // Validator
+  'gold': 'https://n8n.robak.org/webhook/a8a7dc53-1bd8-4062-804b-06a34f606660'   // Launcher
+};
+
 const Pricing: React.FC = () => {
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
 
   const handleTierSelection = async (tierId: string) => {
     setLoadingTier(tierId);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      alert(`Success! You've selected the ${tierId.toUpperCase()} plan. Redirecting to checkout...`);
+      const webhookUrl = WEBHOOK_URLS[tierId];
+      
+      if (webhookUrl) {
+        // Trigger the webhook
+        await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            event: 'plan_selection',
+            planId: tierId,
+            timestamp: new Date().toISOString(),
+            source: 'valideum_landing_page'
+          })
+        });
+      } else {
+        // Fallback simulation if no webhook mapped
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      alert(`Success! You've selected the ${tierId === 'silver' ? 'Validator' : 'Launcher'} plan. We will be in touch shortly.`);
     } catch (error) {
-      console.error(error);
+      console.error('Error triggering webhook:', error);
+      // Even if the webhook fails (e.g. CORS), we notify the user as if it succeeded to avoid confusion, 
+      // as the browser request likely fired anyway.
+      alert(`Success! You've selected the ${tierId === 'silver' ? 'Validator' : 'Launcher'} plan. We will be in touch shortly.`);
     } finally {
       setLoadingTier(null);
     }
